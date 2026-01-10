@@ -46,6 +46,15 @@ app.post("/entries", async (req, res) => {
   }
 });
 
+// Get All Diary Entries
+app.get("/entries", async (req,res) => {
+  try {
+    const entries = await Entry.find().sort({ createdAt: -1}); // Newest first
+    res.json(entries);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch entries"});
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`✅ API running on http://localhost:${PORT}`);
