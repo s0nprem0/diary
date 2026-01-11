@@ -25,18 +25,22 @@ export default function AddEntryScreen({ navigation }: any) {
 
       if (res.ok) {
         const remote = await res.json();
-        await addEntry({
-          date: remote.createdAt || new Date().toISOString(),
-          mood: remote.mood || 'Neutral',
-          notes: remote.content || notes,
-        });
+        await addEntry(
+          {
+            date: remote.createdAt || new Date().toISOString(),
+            mood: remote.mood || 'Neutral',
+            notes: remote.content || notes,
+          },
+          true,
+          remote.id || remote._id,
+        );
       } else {
-        // fallback: save locally with unknown mood
-        await addEntry({ date: new Date().toISOString(), mood: 'Unknown', notes });
+        // fallback: save locally (not synced)
+        await addEntry({ date: new Date().toISOString(), mood: 'Unknown', notes }, false);
       }
     } catch (e) {
-      // network error -> save locally
-      await addEntry({ date: new Date().toISOString(), mood: 'Unknown', notes });
+      // network error -> save locally (not synced)
+      await addEntry({ date: new Date().toISOString(), mood: 'Unknown', notes }, false);
     }
 
     navigation.navigate('Home');

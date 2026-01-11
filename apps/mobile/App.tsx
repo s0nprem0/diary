@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { Provider as PaperProvider } from 'react-native-paper';
 
 import HomeScreen from './src/screens/HomeScreen';
@@ -11,6 +12,23 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import InsightsScreen from './src/screens/InsightsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { lightTheme, darkTheme } from './src/theme';
+import { syncPendingEntries } from './src/services/entriesService';
+import { ENTRIES_API } from './config';
+
+// helper to post a local entry to the server
+const postEntryToServer = async (entry: any) => {
+  try {
+    const res = await fetch(`${ENTRIES_API}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: entry.notes || '', date: entry.date }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, data };
+  } catch (e) {
+    return { ok: false };
+  }
+};
 
 export type RootStackParamList = {
   Home: undefined;
@@ -35,7 +53,25 @@ export default function App() {
       } catch (e) {
         // ignore
       }
+      // attempt to sync any pending entries when the app starts
+      try {
+        await syncPendingEntries(postEntryToServer as any);
+      } catch (e) {
+        // ignore sync errors on startup
+      }
     })();
+  }, []);
+
+  useEffect(() => {
+    // when connectivity returns, try to sync pending entries
+    const sub = NetInfo.addEventListener((state) => {
+      if (state.isConnected) {
+        syncPendingEntries(postEntryToServer as any).catch(() => {
+          /* ignore */
+        });
+      }
+    });
+    return () => sub();
   }, []);
 
   return (
