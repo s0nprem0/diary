@@ -31,6 +31,7 @@ app.get("/", (req, res) => {
 // 1. Register User
 app.post("/auth/register", async (req, res) => {
   try {
+    console.log("[AUTH] Register attempt:", req.headers['content-type'], req.body);
     const { email, password } = req.body;
 
     // Check if user exists
@@ -62,6 +63,7 @@ app.post("/auth/register", async (req, res) => {
 // 2. Login User
 app.post("/auth/login", async (req, res) => {
   try {
+    console.log("[AUTH] Login attempt:", req.headers['content-type'], req.body);
     const { email, password } = req.body;
 
     // Find User
