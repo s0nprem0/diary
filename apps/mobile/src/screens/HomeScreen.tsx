@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { FAB, Text, Button } from 'react-native-paper';
-import { getEntries } from '../services/entriesService';
+import { getEntries, deleteEntry } from '../services/entriesService';
 import EntryCard from '../components/EntryCard';
 
 export default function HomeScreen({ navigation }: any) {
@@ -18,6 +18,24 @@ export default function HomeScreen({ navigation }: any) {
     return unsub;
   }, [navigation]);
 
+  const handleEdit = (entry: any) => {
+    navigation.navigate('AddEntry', { entry });
+  };
+
+  const handleDelete = (id: string) => {
+    Alert.alert('Delete entry', 'Are you sure you want to delete this entry?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteEntry(id);
+          load();
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -30,7 +48,7 @@ export default function HomeScreen({ navigation }: any) {
             </Button>
           </View>
         ) : (
-          entries.map((e) => <EntryCard key={e.id} entry={e} />)
+          entries.map((e) => <EntryCard key={e.id || e._id} entry={e} onEdit={handleEdit} onDelete={handleDelete} />)
         )}
       </ScrollView>
       <FAB icon="plus" onPress={() => navigation.navigate('AddEntry')} style={styles.fab} accessibilityLabel="Add entry" />
