@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 
-// 🔧 UPDATE WITH YOUR COMPUTER'S LOCAL IP ADDRESS (e.g., 192.168.1.X)
-// Do not use localhost for Android Emulator (use 10.0.2.2) or Physical Device
-const API_URL = 'http://192.168.1.5:3001/auth';
+const API_URL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:3001/auth'
+  : 'http://localhost:3001/auth';
 
-export default function LoginScreen({ navigation, onLogin }: any) {
+export default function LoginScreen({ navigation }: any) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,9 +31,11 @@ export default function LoginScreen({ navigation, onLogin }: any) {
 
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
 
-      // Save Token securely
       await SecureStore.setItemAsync('token', data.token);
-      onLogin(); // Notify App to switch screens
+
+      // Navigate to Home Stack
+      navigation.replace("Home");
+
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {

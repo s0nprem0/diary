@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface Entry {
   _id: string;
@@ -10,32 +11,62 @@ interface Entry {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
-  // 1. Fetch entries on load
   useEffect(() => {
-    fetch("http://localhost:3001/entries")
-      .then((res) => res.json())
+    // 1. Check Authentication
+    const storedToken = localStorage.getItem("token");
+    if (!storedToken) {
+      router.push("/login");
+      return;
+    }
+    setToken(storedToken);
+
+    // 2. Fetch Entries with Authorization Header
+    fetch("http://localhost:3001/entries", {
+      headers: {
+        Authorization: `Bearer ${storedToken}`, // CRITICAL FIX
+      },
+    })
+      .then((res) => {
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          router.push("/login");
+          throw new Error("Unauthorized");
+        }
+        return res.json();
+      })
       .then((data) => setEntries(data))
       .catch((err) => console.error("Failed to fetch entries:", err));
-  }, []);
+  }, [router]);
 
-  // 2. Handle Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || !token) return;
     setLoading(true);
 
     try {
       const res = await fetch("http://localhost:3001/entries", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // CRITICAL FIX
+        },
         body: JSON.stringify({ content: text }),
       });
+
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        router.push("/login");
+        return;
+      }
+
       const newEntry = await res.json();
-      setEntries([newEntry, ...entries]); // Add new entry to top
+      setEntries([newEntry, ...entries]);
       setText("");
     } catch (error) {
       console.error("Error saving:", error);
@@ -43,6 +74,9 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  // Prevent flash of content before redirect
+  if (!token) return null;
 
   // Helper for colors
   const getMoodColor = (mood: string) => {
@@ -57,14 +91,24 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-8 max-w-2xl mx-auto font-sans">
-      <h1 className="text-3xl font-bold mb-8 text-center">📘 Mood Diary</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">📘 Mood Diary</h1>
+        <button
+          onClick={() => {
+            localStorage.removeItem("token");
+            router.push("/login");
+          }}
+          className="text-sm text-red-600 hover:underline"
+        >
+          Logout
+        </button>
+      </div>
 
-      {/* Diary Input Form */}
       <form onSubmit={handleSubmit} className="mb-8 gap-4 flex flex-col">
         <textarea
           className="w-full p-4 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-black"
           rows={4}
-          placeholder="How was your day? (e.g., 'I learned Next.js and it was awesome!')"
+          placeholder="How was your day?"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
@@ -72,11 +116,10 @@ export default function Home() {
           disabled={loading}
           className="bg-black text-white py-2 px-4 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
         >
-          {loading ? "Analyzing Mood..." : "Save Entry"}
+          {loading ? "Analyzing..." : "Save Entry"}
         </button>
       </form>
 
-      {/* Entry List */}
       <div className="space-y-4">
         {entries.map((entry) => (
           <div

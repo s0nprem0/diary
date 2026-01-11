@@ -3,33 +3,49 @@ import {
   StyleSheet, Text, View, TextInput, TouchableOpacity,
   FlatList, SafeAreaView, Platform, KeyboardAvoidingView, Alert
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
+import * as SecureStore from 'expo-secure-store';
 
-// 🔧 UPDATE WITH YOUR IP
-const API_URL = 'http://192.168.1.5:3001/entries';
+const API_URL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:3001/entries'
+  : 'http://localhost:3001/entries';
 
 interface Entry {
   _id: string;
   content: string;
   mood: string;
+  sentimentScore: number;
   createdAt: string;
 }
 
-export default function HomeScreen({ onLogout }: any) {
+export default function HomeScreen({ navigation }: any) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 1. Fetch Entries (With Token)
+  // 1. Fetch Entries with Token
   const fetchEntries = async () => {
-    const token = await SecureStore.getItemAsync('token');
     try {
+      const token = await SecureStore.getItemAsync('token');
+      if (!token) {
+        navigation.replace('Login');
+        return;
+      }
+
       const res = await fetch(API_URL, {
-        headers: { 'Authorization': `Bearer ${token}` } // 🔑 Key Change
+        headers: {
+          'Authorization': `Bearer ${token}` // CRITICAL FIX
+        }
       });
+
+      if (res.status === 401) {
+        await SecureStore.deleteItemAsync('token');
+        navigation.replace('Login');
+        return;
+      }
+
       const data = await res.json();
-      if(Array.isArray(data)) setEntries(data);
+      setEntries(data);
     } catch (error) {
       console.log('Error fetching:', error);
     }
@@ -39,23 +55,23 @@ export default function HomeScreen({ onLogout }: any) {
     fetchEntries();
   }, []);
 
-  // 2. Submit Entry (With Token)
+  // 2. Submit Entry with Token
   const handleSubmit = async () => {
     if (!text.trim()) return;
     setLoading(true);
-    const token = await SecureStore.getItemAsync('token');
 
     try {
+      const token = await SecureStore.getItemAsync('token');
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // 🔑 Key Change
+          'Authorization': `Bearer ${token}` // CRITICAL FIX
         },
         body: JSON.stringify({ content: text }),
       });
-      const newEntry = await res.json();
 
+      const newEntry = await res.json();
       setEntries([newEntry, ...entries]);
       setText('');
     } catch (error) {
@@ -65,7 +81,11 @@ export default function HomeScreen({ onLogout }: any) {
     }
   };
 
-  // Helper for Mood Colors
+  const handleLogout = async () => {
+    await SecureStore.deleteItemAsync('token');
+    navigation.replace('Login');
+  };
+
   const getMoodColor = (mood: string) => {
     switch (mood) {
       case 'Happy': return '#dcfce7';
@@ -80,7 +100,9 @@ export default function HomeScreen({ onLogout }: any) {
     <View style={[styles.card, { backgroundColor: getMoodColor(item.mood) }]}>
       <View style={styles.cardHeader}>
         <Text style={styles.moodText}>{item.mood}</Text>
-        <Text style={styles.dateText}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+        <Text style={styles.dateText}>
+          {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
       </View>
       <Text style={styles.contentText}>{item.content}</Text>
     </View>
@@ -88,21 +110,24 @@ export default function HomeScreen({ onLogout }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>📘 My Diary</Text>
-        <TouchableOpacity onPress={onLogout}>
-          <Text style={{color: 'red'}}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardContainer}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>📘 Mood Diary</Text>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
 
-      <FlatList
-        data={entries}
-        renderItem={renderItem}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.listContent}
-      />
+        <FlatList
+          data={entries}
+          renderItem={renderItem}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.listContent}
+        />
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -111,27 +136,36 @@ export default function HomeScreen({ onLogout }: any) {
             onChangeText={setText}
             multiline
           />
-          <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={loading}>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
             <Text style={styles.buttonText}>{loading ? "..." : "Save"}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      <StatusBar style="auto" />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingTop: 30 },
-  header: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#eee' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  keyboardContainer: { flex: 1 },
+  header: { padding: 20, paddingTop: 50, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', position: 'relative' },
   title: { fontSize: 24, fontWeight: 'bold' },
+  logoutButton: { position: 'absolute', right: 20, top: 55 },
+  logoutText: { color: 'red', fontWeight: '600' },
   listContent: { padding: 15 },
-  card: { padding: 15, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
+  card: { padding: 15, borderRadius: 12, marginBottom: 10 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   moodText: { fontWeight: 'bold', fontSize: 16 },
   dateText: { color: '#666', fontSize: 12 },
-  contentText: { fontSize: 14, lineHeight: 20 },
+  contentText: { fontSize: 14, lineHeight: 20, color: '#333' },
   inputContainer: { flexDirection: 'row', padding: 15, borderTopWidth: 1, borderTopColor: '#eee', backgroundColor: '#fafafa' },
   input: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, maxHeight: 100 },
   button: { backgroundColor: '#000', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginLeft: 10 },
+  buttonDisabled: { opacity: 0.5 },
   buttonText: { color: '#fff', fontWeight: 'bold' },
 });
