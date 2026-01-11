@@ -71,7 +71,14 @@ export default function AddEntryScreen({ navigation, route }: any) {
       }
     }
 
-    navigation.navigate('Home');
+    // Navigate back to the Home tab inside the Main stack.
+    // `Home` lives in the nested BottomTabs navigator registered under the "Main" stack entry.
+    try {
+      navigation.navigate('Main', { screen: 'Home' });
+    } catch {
+      // fallback to a generic goBack if nested navigation fails
+      navigation.goBack();
+    }
   };
 
   return (

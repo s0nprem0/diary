@@ -6,11 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { Provider as PaperProvider } from 'react-native-paper';
 
-import HomeScreen from './src/screens/HomeScreen';
 import AddEntryScreen from './src/screens/AddEntryScreen';
-import HistoryScreen from './src/screens/HistoryScreen';
-import InsightsScreen from './src/screens/InsightsScreen';
-import SettingsScreen from './src/screens/SettingsScreen';
+import BottomTabs from './src/navigation/BottomTabs';
 import { lightTheme, darkTheme } from './src/theme';
 import { syncPendingEntries } from './src/services/entriesService';
 import { ENTRIES_API } from './config';
@@ -78,14 +75,13 @@ export default function App() {
     <SafeAreaProvider>
       <PaperProvider theme={isDark ? (darkTheme as any) : (lightTheme as any)}>
         <NavigationContainer>
-          <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="AddEntry" component={AddEntryScreen} />
-            <Stack.Screen name="History" component={HistoryScreen} />
-            <Stack.Screen name="Insights" component={InsightsScreen} />
-            <Stack.Screen name="Settings">
-              {() => <SettingsScreen isDark={isDark} setIsDark={setIsDark} />}
+          <Stack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Main">
+              {() => <BottomTabs isDark={isDark} setIsDark={setIsDark} />}
             </Stack.Screen>
+
+            {/* keep AddEntry as a dedicated screen */}
+            <Stack.Screen name="AddEntry" component={AddEntryScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </PaperProvider>
