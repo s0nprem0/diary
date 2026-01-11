@@ -4,7 +4,6 @@ export interface Entry {
   id: string;
   date: string; // ISO
   mood: string;
-  intensity: number; // 0-100
   notes?: string;
 }
 
